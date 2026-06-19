@@ -15,7 +15,7 @@ use App\Http\Controllers\FineController;
 use App\Http\Controllers\SettingController;
 
 Route::get('/', function () {
-    return view('welcome');
+    return redirect('/login');
 });
 
 Route::middleware(['auth', 'verified'])->group(function () {
