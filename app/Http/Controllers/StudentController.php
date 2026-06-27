@@ -6,6 +6,7 @@ use App\Models\Student;
 use App\Models\ClassModel;
 use App\Models\Section;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class StudentController extends Controller
 {
@@ -55,7 +56,8 @@ class StudentController extends Controller
             'date_of_admission' => 'required|date',
         ]);
         Student::create($request->all());
-        return redirect()->route('students.index')->with('success', 'Student added successfully!');
+        return redirect()->route('students.index')
+            ->with('success', 'Student added successfully!');
     }
 
     public function edit($id)
@@ -70,62 +72,68 @@ class StudentController extends Controller
     {
         $student = Student::findOrFail($id);
         $student->update($request->all());
-        return redirect()->route('students.index')->with('success', 'Student updated successfully!');
+        return redirect()->route('students.index')
+            ->with('success', 'Student updated successfully!');
     }
 
     public function destroy($id)
-    {
-        Student::findOrFail($id)->delete();
-        return redirect()->route('students.index')->with('success', 'Student deleted successfully!');
-    }
+{
+    DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+    $student = Student::findOrFail($id);
+    $student->delete();
+    DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+
+    return redirect()->route('students.index')
+        ->with('success', 'Student deleted successfully!');
+}
 
     public function profile($id)
-{
-    $student = Student::with(
-        'classModel',
-        'section',
-        'feeDues.term',
-        'payments',
-        'discounts',
-        'fines'
-    )->findOrFail($id);
+    {
+        $student = Student::with(
+            'classModel',
+            'section',
+            'feeDues.term',
+            'payments',
+            'discounts',
+            'fines'
+        )->findOrFail($id);
 
-    $total_fees = $student->feeDues->sum('amount_due');
-    $total_paid = $student->feeDues->sum('amount_paid');
-    $total_balance = $student->feeDues->sum('outstanding_balance');
-    $total_fines = $student->fines->sum('fine_amount');
-    $total_discounts = $student->discounts->sum('amount');
+        $total_fees = $student->feeDues->sum('amount_due');
+        $total_paid = $student->feeDues->sum('amount_paid');
+        $total_balance = $student->feeDues->sum('outstanding_balance');
+        $total_fines = $student->fines->sum('fine_amount');
+        $total_discounts = $student->discounts->sum('amount');
 
-    return view('admin.students.profile', compact(
-        'student', 'total_fees', 'total_paid',
-        'total_balance', 'total_fines', 'total_discounts'
-    ));
-}
+        return view('admin.students.profile', compact(
+            'student', 'total_fees', 'total_paid',
+            'total_balance', 'total_fines', 'total_discounts'
+        ));
+    }
 
-public function exportPdf()
-{
-    $students = Student::with('classModel', 'section')->get();
-    $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('admin.pdf.students', compact('students'));
-    return $pdf->download('students-list.pdf');
-}
+    public function exportPdf()
+    {
+        $students = Student::with('classModel', 'section')->get();
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('admin.pdf.students', compact('students'));
+        return $pdf->download('students-list.pdf');
+    }
 
-public function profilePdf($id)
-{
-    $student = Student::with(
-        'classModel', 'section',
-        'feeDues.term', 'payments',
-        'discounts', 'fines'
-    )->findOrFail($id);
+    public function profilePdf($id)
+    {
+        $student = Student::with(
+            'classModel', 'section',
+            'feeDues.term', 'payments',
+            'discounts', 'fines'
+        )->findOrFail($id);
 
-    $total_fees = $student->feeDues->sum('amount_due');
-    $total_paid = $student->feeDues->sum('amount_paid');
-    $total_balance = $student->feeDues->sum('outstanding_balance');
-    $total_fines = $student->fines->sum('fine_amount');
-    $total_discounts = $student->discounts->sum('amount');
+        $total_fees = $student->feeDues->sum('amount_due');
+        $total_paid = $student->feeDues->sum('amount_paid');
+        $total_balance = $student->feeDues->sum('outstanding_balance');
+        $total_fines = $student->fines->sum('fine_amount');
+        $total_discounts = $student->discounts->sum('amount');
 
-    $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('admin.pdf.student_profile',
-        compact('student', 'total_fees', 'total_paid',
-                'total_balance', 'total_fines', 'total_discounts'));
-    return $pdf->download('student-profile-'.$student->roll_number.'.pdf');
-}
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('admin.pdf.student_profile',
+            compact('student', 'total_fees', 'total_paid',
+                    'total_balance', 'total_fines', 'total_discounts'));
+        return $pdf->download('student-profile-'.$student->roll_number.'.pdf');
+    }
 }

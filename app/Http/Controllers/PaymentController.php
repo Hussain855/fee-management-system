@@ -7,6 +7,7 @@ use App\Models\FeeDue;
 use App\Models\Student;
 use App\Models\Receipt;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class PaymentController extends Controller
 {
@@ -42,6 +43,7 @@ class PaymentController extends Controller
 
         if ($feeDue->outstanding_balance <= 0) {
             $feeDue->status = 'Paid';
+            $feeDue->outstanding_balance = 0;
         } else {
             $feeDue->status = 'Partially Paid';
         }
@@ -56,7 +58,8 @@ class PaymentController extends Controller
             'total_paid' => $request->amount_paid,
         ]);
 
-        return redirect()->route('payments.index')->with('success', 'Payment recorded successfully!');
+        return redirect()->route('payments.index')
+            ->with('success', 'Payment recorded successfully!');
     }
 
     public function show($id)
@@ -67,14 +70,42 @@ class PaymentController extends Controller
 
     public function destroy($id)
     {
-        Payment::findOrFail($id)->delete();
-        return redirect()->route('payments.index')->with('success', 'Payment deleted successfully!');
+        DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+
+        $payment = Payment::findOrFail($id);
+
+        // First delete the receipt
+        Receipt::where('payment_id', $id)->delete();
+
+        // Then reverse fee due amount
+        $feeDue = FeeDue::find($payment->fee_due_id);
+        if ($feeDue) {
+            $feeDue->amount_paid -= $payment->amount_paid;
+            $feeDue->outstanding_balance = $feeDue->amount_due - $feeDue->amount_paid;
+            if ($feeDue->outstanding_balance <= 0) {
+                $feeDue->status = 'Paid';
+                $feeDue->outstanding_balance = 0;
+            } elseif ($feeDue->amount_paid > 0) {
+                $feeDue->status = 'Partially Paid';
+            } else {
+                $feeDue->status = 'Pending';
+            }
+            $feeDue->save();
+        }
+
+        // Finally delete payment
+        $payment->delete();
+
+        DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+
+        return redirect()->route('payments.index')
+            ->with('success', 'Payment deleted successfully!');
     }
 
     public function exportPdf()
-{
-    $payments = Payment::with('student')->orderBy('id', 'desc')->get();
-    $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('admin.pdf.payments', compact('payments'));
-    return $pdf->download('payments-list.pdf');
-}
+    {
+        $payments = Payment::with('student')->orderBy('id', 'desc')->get();
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('admin.pdf.payments', compact('payments'));
+        return $pdf->download('payments-list.pdf');
+    }
 }

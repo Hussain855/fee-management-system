@@ -6,6 +6,7 @@ use App\Models\FeeStructure;
 use App\Models\ClassModel;
 use App\Models\Term;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class FeeStructureController extends Controller
 {
@@ -34,7 +35,8 @@ class FeeStructureController extends Controller
             'total_amount' => 'required|numeric',
         ]);
         FeeStructure::create($request->all());
-        return redirect()->route('fee_structure.index')->with('success', 'Fee structure added successfully!');
+        return redirect()->route('fee_structure.index')
+            ->with('success', 'Fee structure added successfully!');
     }
 
     public function edit($id)
@@ -49,12 +51,16 @@ class FeeStructureController extends Controller
     {
         $feeStructure = FeeStructure::findOrFail($id);
         $feeStructure->update($request->all());
-        return redirect()->route('fee_structure.index')->with('success', 'Fee structure updated successfully!');
+        return redirect()->route('fee_structure.index')
+            ->with('success', 'Fee structure updated successfully!');
     }
 
     public function destroy($id)
     {
+        DB::statement('SET FOREIGN_KEY_CHECKS=0;');
         FeeStructure::findOrFail($id)->delete();
-        return redirect()->route('fee_structure.index')->with('success', 'Fee structure deleted successfully!');
+        DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+        return redirect()->route('fee_structure.index')
+            ->with('success', 'Fee structure deleted successfully!');
     }
 }

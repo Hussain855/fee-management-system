@@ -7,23 +7,24 @@ use App\Models\Student;
 use App\Models\FeeStructure;
 use App\Models\Term;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class FeeDueController extends Controller
 {
     public function index(Request $request)
-{
-    $query = FeeDue::with('student', 'term');
-    if ($request->search) {
-        $query->whereHas('student', function($q) use ($request) {
-            $q->where('name', 'like', '%' . $request->search . '%');
-        });
+    {
+        $query = FeeDue::with('student', 'term');
+        if ($request->search) {
+            $query->whereHas('student', function($q) use ($request) {
+                $q->where('name', 'like', '%' . $request->search . '%');
+            });
+        }
+        if ($request->status) {
+            $query->where('status', $request->status);
+        }
+        $feeDues = $query->paginate(10);
+        return view('admin.fee_dues.index', compact('feeDues'));
     }
-    if ($request->status) {
-        $query->where('status', $request->status);
-    }
-    $feeDues = $query->paginate(10);
-    return view('admin.fee_dues.index', compact('feeDues'));
-}
 
     public function create()
     {
@@ -42,9 +43,12 @@ class FeeDueController extends Controller
             'amount_due' => 'required|numeric',
         ]);
         $data = $request->all();
+        $data['amount_paid'] = 0;
         $data['outstanding_balance'] = $data['amount_due'];
+        $data['status'] = 'Pending';
         FeeDue::create($data);
-        return redirect()->route('fee_dues.index')->with('success', 'Fee due added successfully!');
+        return redirect()->route('fee_dues.index')
+            ->with('success', 'Fee due added successfully!');
     }
 
     public function edit($id)
@@ -59,13 +63,41 @@ class FeeDueController extends Controller
     public function update(Request $request, $id)
     {
         $feeDue = FeeDue::findOrFail($id);
-        $feeDue->update($request->all());
-        return redirect()->route('fee_dues.index')->with('success', 'Fee due updated successfully!');
+        
+        $amount_due = $request->amount_due;
+        $amount_paid = $request->amount_paid ?? $feeDue->amount_paid;
+        $outstanding_balance = $amount_due - $amount_paid;
+        
+        // Auto set status
+        if ($outstanding_balance <= 0) {
+            $status = 'Paid';
+            $outstanding_balance = 0;
+        } else {
+            $status = 'Pending';
+        }
+
+        $feeDue->update([
+            'student_id' => $request->student_id,
+            'fee_structure_id' => $request->fee_structure_id,
+            'term_id' => $request->term_id,
+            'amount_due' => $amount_due,
+            'amount_paid' => $amount_paid,
+            'outstanding_balance' => $outstanding_balance,
+            'status' => $status,
+            'due_date' => $request->due_date,
+        ]);
+
+        return redirect()->route('fee_dues.index')
+            ->with('success', 'Fee due updated successfully!');
     }
 
     public function destroy($id)
     {
+        DB::statement('SET FOREIGN_KEY_CHECKS=0;');
         FeeDue::findOrFail($id)->delete();
-        return redirect()->route('fee_dues.index')->with('success', 'Fee due deleted successfully!');
+        DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+        
+        return redirect()->route('fee_dues.index')
+            ->with('success', 'Fee due deleted successfully!');
     }
 }

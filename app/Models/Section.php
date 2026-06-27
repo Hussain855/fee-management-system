@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Section extends Model
 {
-    protected $table = 'section';
+    protected $table = 'sections';
     public $timestamps = false;
     protected $fillable = ['class_id', 'name'];
 

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Section;
 use App\Models\ClassModel;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class SectionController extends Controller
 {
@@ -49,8 +50,13 @@ class SectionController extends Controller
     }
 
     public function destroy($id)
-    {
-        Section::findOrFail($id)->delete();
-        return redirect()->route('sections.index')->with('success', 'Section deleted successfully!');
-    }
+{
+    DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+    $section = Section::findOrFail($id);
+    $section->delete();
+    DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+
+    return redirect()->route('sections.index')
+        ->with('success', 'Section deleted successfully!');
+}
 }
