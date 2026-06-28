@@ -14,7 +14,7 @@ return new class extends Migration
             $table->string('name', 100);
             $table->string('roll_number', 50)->unique();
             $table->foreignId('class_id')->constrained('classes');
-            $table->foreignId('section_id')->constrained('section');
+            $table->foreignId('section_id')->constrained('sections');
             $table->string('guardian_name', 100);
             $table->string('phone', 20);
             $table->text('address');
